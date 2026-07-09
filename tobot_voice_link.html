@@ -242,7 +242,7 @@
     <h3>&#9881; VOICE LINK SETTINGS</h3>
     <label>Relay URL (from your Cloudflare Worker)</label>
     <input type="text" id="relayUrl" placeholder="https://tobot-relay.yourname.workers.dev">
-    <label>Tobot voice pitch (used only if real voice audio isn't available)</label>
+    <label>Tobot voice pitch</label>
     <input type="range" id="pitchRange" min="0.6" max="1.6" step="0.05" value="1">
     <label>Tobot voice speed</label>
     <input type="range" id="rateRange" min="0.7" max="1.3" step="0.05" value="0.95">
@@ -252,7 +252,7 @@
     </div>
     <button id="clearChat">Clear Chat History</button>
     <div class="settings-note">
-      This page never stores your Kindroid or ElevenLabs keys — those live only
+      This page never stores your Kindroid key — that lives only
       in your Cloudflare Worker. Garrett only ever talks to your Worker.
     </div>
   </div>
@@ -347,23 +347,6 @@
     window.speechSynthesis.speak(u);
   }
 
-  function playRealAudio(base64Audio){
-    return new Promise((resolve)=>{
-      try{
-        const binary = atob(base64Audio);
-        const bytes = new Uint8Array(binary.length);
-        for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], {type:'audio/mpeg'});
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.onplay = ()=>{ avatarWrap.classList.add('speaking'); statusLine.textContent='TOBOT IS TALKING...'; statusLine.classList.add('active'); };
-        audio.onended = ()=>{ avatarWrap.classList.remove('speaking'); statusLine.textContent='TAP MIC TO TALK'; statusLine.classList.remove('active'); URL.revokeObjectURL(url); resolve(true); };
-        audio.onerror = ()=>{ URL.revokeObjectURL(url); resolve(false); };
-        audio.play().catch(()=> resolve(false));
-      }catch(e){ resolve(false); }
-    });
-  }
-
   async function sendToTobot(message){
     addBubble('garrett', message);
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
@@ -381,25 +364,11 @@
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ message })
       });
-      let clean, audioB64;
-      const ct = resp.headers.get('content-type') || '';
-      if(ct.includes('application/json')){
-        const data = await resp.json();
-        clean = (data.text && data.text.trim()) ? data.text.trim() : "Hmm, I didn't catch that. Can you say it again?";
-        audioB64 = data.audio || null;
-      } else {
-        const text = await resp.text();
-        clean = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
-        audioB64 = null;
-      }
+      const text = await resp.text();
       thinking.remove();
+      const clean = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
       addBubble('tobot', clean);
-      if(audioB64){
-        const ok = await playRealAudio(audioB64);
-        if(!ok) speak(clean);
-      } else {
-        speak(clean);
-      }
+      speak(clean);
     }catch(e){
       thinking.remove();
       const fallback = "My signal's a little glitchy right now! Try again in a bit.";
