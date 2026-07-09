@@ -288,6 +288,26 @@
     window.speechSynthesis.speak(u);
   }
 
+  // ---- play real ElevenLabs audio (preferred over browser voice) ----
+  function playRealAudio(base64Audio){
+    return new Promise((resolve)=>{
+      try{
+        const binary = atob(base64Audio);
+        const bytes = new Uint8Array(binary.length);
+        for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], {type:'audio/mpeg'});
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onplay = ()=>{ avatarWrap.classList.add('speaking'); statusLine.textContent='TOBOT IS TALKING...'; statusLine.classList.add('active'); };
+        audio.onended = ()=>{ avatarWrap.classList.remove('speaking'); statusLine.textContent='TAP THE MIC AND TALK TO YOUR TOBOT'; statusLine.classList.remove('active'); URL.revokeObjectURL(url); resolve(true); };
+        audio.onerror = ()=>{ URL.revokeObjectURL(url); resolve(false); };
+        audio.play().catch(()=> resolve(false));
+      }catch(e){
+        resolve(false);
+      }
+    });
+  }
+
   // ---- talking to the relay ----
   async function sendToTobot(message){
     addBubble('garrett', message);
@@ -306,11 +326,25 @@
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ message })
       });
-      const text = await resp.text();
+      let clean, audioB64;
+      const ct = resp.headers.get('content-type') || '';
+      if(ct.includes('application/json')){
+        const data = await resp.json();
+        clean = (data.text && data.text.trim()) ? data.text.trim() : "Hmm, I didn't catch that. Can you say it again?";
+        audioB64 = data.audio || null;
+      } else {
+        const text = await resp.text();
+        clean = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
+        audioB64 = null;
+      }
       thinking.remove();
-      const clean = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
       addBubble('tobot', clean);
-      speak(clean);
+      if(audioB64){
+        const ok = await playRealAudio(audioB64);
+        if(!ok) speak(clean);
+      } else {
+        speak(clean);
+      }
     }catch(e){
       thinking.remove();
       const fallback = "My signal's a little glitchy right now! Try again in a bit.";
