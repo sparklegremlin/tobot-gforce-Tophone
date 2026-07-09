@@ -18,7 +18,7 @@
  * 2. Settings -> Variables and Secrets -> make sure these exist:
  *      KINDROID_API_KEY      (Secret)  = kn_75956c85-a91d-4e43-91be-748197187e45
  *      KINDROID_AI_ID        (Secret)  = cfkyOPx31WmFTRmDXhZI
- *      ELEVENLABS_API_KEY    (Secret)  = fb2ebd783a37fa61021d6deddbc9ff9f0644d02ef42d3a3f9a4dd03038e63c47
+ *      ELEVENLABS_API_KEY    (Secret)  = sk_63dabc6d7af3cae261bb95dadd899e062676819481a41778
  *      ELEVENLABS_VOICE_ID   (Variable, plain text is fine) = RlebciW0Zq58a5o4KVOa
  *        ID you picked in ElevenLabs (from the Voices page, "Voice ID")
  * 3. Deploy again after adding the new secrets/variables.
