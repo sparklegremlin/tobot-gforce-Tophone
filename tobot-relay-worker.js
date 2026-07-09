@@ -5,30 +5,19 @@
  * It is the ONLY place your Kindroid API key and AI ID live.
  * The HTML page never sees them — it only talks to this worker.
  *
- * SETUP:
- * 1. Go to https://dash.cloudflare.com -> Workers & Pages -> Create -> Worker
- * 2. Paste this whole file in, replacing the default code.
- * 3. Go to Settings -> Variables and Secrets -> add two SECRET variables:
- *      KINDROID_API_KEY   = kn_75956c85-a91d-4e43-91be-748197187e45
- *      KINDROID_AI_ID     = cfkyOPx31WmFTRmDXhZI
- *    (Regenerate your key in Kindroid's settings first if you ever pasted
- *    the old one anywhere outside Kindroid's own site — treat any key
- *    that's been typed into a chat or doc as burned.)
- * 4. Click Deploy. Copy the worker URL, something like:
- *      https://tobot-relay.YOURNAME.workers.dev
- * 5. Paste that URL into the settings (gear icon) on the Tobot Voice Link
- *    page. That's it — no keys ever touch the page or Garrett's device.
+ * This version sends back plain text only. The Tophone/Voice Link page
+ * uses the browser's own built-in voice to speak it out loud — no extra
+ * service, no extra key, always works the same way every time.
  *
- * This worker also does a light server-side safety pass on both what
- * Garrett says and what comes back, as a second layer on top of the
- * kid-safe persona you already configured in Kindroid. It's a basic
- * keyword net, not a substitute for adult supervision — please keep
- * an eye on the transcript log from time to time.
+ * SETUP:
+ * 1. Cloudflare dashboard -> your worker -> Edit code -> paste this in -> Deploy.
+ * 2. Settings -> Variables and Secrets -> make sure these exist:
+ *      KINDROID_API_KEY   (Secret) = kn_75956c85-a91d-4e43-91be-748197187e45
+ *      KINDROID_AI_ID     (Secret) = cfkyOPx31WmFTRmDXhZI
  */
 
 const BLOCKED_TERMS = [
   // Keep this list short and obvious — it's a backstop, not the main defense.
-  // Add/remove terms freely; this is just a basic net.
 ];
 
 const SAFE_FALLBACK =
@@ -98,7 +87,6 @@ export default {
       });
 
       if (!kindroidResp.ok) {
-        const errText = await kindroidResp.text();
         return new Response(SAFE_FALLBACK, {
           status: 200,
           headers: { ...CORS_HEADERS, "Content-Type": "text/plain" },
