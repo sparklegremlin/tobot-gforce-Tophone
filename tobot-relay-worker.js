@@ -9,8 +9,8 @@
  * 1. Go to https://dash.cloudflare.com -> Workers & Pages -> Create -> Worker
  * 2. Paste this whole file in, replacing the default code.
  * 3. Go to Settings -> Variables and Secrets -> add two SECRET variables:
- *      KINDROID_API_KEY   = kn_xxxxxxxxxxxxxxxxxxxxxxxx   (your Kindroid key)
- *      KINDROID_AI_ID     = your Tobot's ai_id
+ *      KINDROID_API_KEY   = kn_75956c85-a91d-4e43-91be-748197187e45 
+ *      KINDROID_AI_ID     = cfkyOPx31WmFTRmDXhZI
  *    (Regenerate your key in Kindroid's settings first if you ever pasted
  *    the old one anywhere outside Kindroid's own site — treat any key
  *    that's been typed into a chat or doc as burned.)
