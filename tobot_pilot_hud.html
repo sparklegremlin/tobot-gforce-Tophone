@@ -130,6 +130,13 @@
   .subnav a:hover{ background:rgba(63,240,232,0.12); color:var(--cyan); }
 
   /* ===== RIGHT: BADGE WALL ===== */
+  .badge-scroll{
+    max-height:460px; overflow-y:auto; padding-right:4px;
+  }
+  .badge-scroll::-webkit-scrollbar{ width:6px; }
+  .badge-scroll::-webkit-scrollbar-track{ background:rgba(255,255,255,0.04); border-radius:3px; }
+  .badge-scroll::-webkit-scrollbar-thumb{ background:rgba(63,240,232,0.35); border-radius:3px; }
+  .badge-scroll::-webkit-scrollbar-thumb:hover{ background:rgba(63,240,232,0.55); }
   .badge-grid{
     display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
   }
@@ -140,10 +147,9 @@
   }
   .badge-slot img{ width:100%; height:100%; object-fit:cover; }
   .badge-slot.locked{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    color:var(--dim); font-size:9px; letter-spacing:1px; gap:6px;
+    display:flex; align-items:center; justify-content:center;
   }
-  .badge-slot.locked .lock-ico{ font-size:20px; opacity:0.4; }
+  .badge-slot.locked .lock-ico{ font-size:28px; opacity:0.35; }
   .badge-caption{ text-align:center; font-size:9px; letter-spacing:1px; color:var(--dim); margin-top:10px; line-height:1.5; }
 
   .badge-slot[data-tooltip]{ cursor:help; }
@@ -336,15 +342,23 @@
     <!-- RIGHT: BADGE WALL -->
     <div class="panel">
       <div class="label">BADGE WALL</div>
-      <div class="badge-grid">
-        <div class="badge-slot" data-tooltip="Mindcore Pilot 1st Sync">
-          <img src="badges/tophone.png" alt="Mindcore Pilot 1st Sync">
+      <div class="badge-scroll">
+        <div class="badge-grid">
+          <div class="badge-slot" data-tooltip="Mindcore Pilot 1st Sync">
+            <img src="badges/tophone.png" alt="Mindcore Pilot 1st Sync">
+          </div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
+          <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
         </div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div>LOCKED</div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div>LOCKED</div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div>LOCKED</div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div>LOCKED</div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div>LOCKED</div>
       </div>
       <div class="badge-caption">Hover a badge to see how it was earned. New badges unlock as missions are completed &amp; approved.</div>
     </div>
