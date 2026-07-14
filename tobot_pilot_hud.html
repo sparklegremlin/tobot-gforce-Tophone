@@ -286,10 +286,9 @@
   }
   .badge-slot img{ width:100%; height:100%; object-fit:cover; }
   .badge-slot.locked{
-    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
   }
-  .badge-slot.locked .lock-ico{ font-size:28px; opacity:0.35; transition:opacity .2s; }
-  .badge-slot.locked:hover .lock-ico{ opacity:0.55; }
+  .badge-slot.locked .lock-ico{ font-size:28px; opacity:0.35; }
 
   /* ===== BADGE UNLOCK: slide up from behind the lock, not a fade ===== */
   .badge-slot.unlocking{ background:rgba(6,6,16,0.5); }
@@ -839,6 +838,7 @@
     profileGforce.classList.toggle('hidden', !showingGforce);
     const btnSfx = document.getElementById('sfxProfileClick');
     btnSfx.currentTime = 0;
+    btnSfx.volume = 0.5;
     btnSfx.play();
   });
 
@@ -850,7 +850,7 @@
     if(coreAudioStarted) return;
     coreAudioStarted = true;
     const coreSfx = document.getElementById('sfxHighTechData');
-    coreSfx.volume = 0.25;
+    coreSfx.volume = 0.1875;
     coreSfx.play();
   }
   window.addEventListener('pointerdown', startCoreAudio, {once:true});
@@ -869,6 +869,7 @@
     statusPanel.classList.toggle('status-collapsed', !statsWallOpen);
     const mechSfx1 = document.getElementById('sfxMechImpact');
     mechSfx1.currentTime = 0;
+    mechSfx1.volume = 0.5;
     mechSfx1.play();
   });
 
@@ -883,6 +884,7 @@
     badgeWallHeader.setAttribute('aria-expanded', String(badgeWallOpen));
     const mechSfx2 = document.getElementById('sfxMechImpact');
     mechSfx2.currentTime = 0;
+    mechSfx2.volume = 0.5;
     mechSfx2.play();
   }
   badgeWallHeader.addEventListener('click', toggleBadgeWall);
@@ -891,8 +893,8 @@
   });
 
   // ---- Badge unlock: slide-in + clank-lock sound ----
-  // Demo hook: click any still-locked badge to preview the unlock effect.
-  // Wire this same function to real mission-approval events later.
+  // Wire this function to real mission-approval events (each badge gets its
+  // own image + tooltip once a mission is approved).
   function unlockBadge(slotEl, imgSrc, tooltip){
     if(!slotEl.classList.contains('locked')) return;
     slotEl.classList.remove('locked');
@@ -906,11 +908,6 @@
     SFX.clankLock();
     setTimeout(()=>{ if(lockIco) lockIco.remove(); }, 320);
   }
-  document.querySelectorAll('.badge-slot.locked').forEach((slot)=>{
-    slot.addEventListener('click', ()=>{
-      unlockBadge(slot, 'badges/tophone.png', 'Preview Unlock (demo)');
-    });
-  });
 
   // ---- Mind Core code readout ----
   const codeLines = [
