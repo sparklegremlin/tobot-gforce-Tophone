@@ -61,19 +61,13 @@
   }
   @media (max-width:920px){ .wrap{ grid-template-columns: 1fr; } }
 
-  /* ===== STATUS PANEL DEPLOY-IN (slides out from behind the profile panel) ===== */
+  /* ===== STATUS PANEL (slides out from behind the profile panel on click,
+     in sync with the PILOT STATS toggle — stays hidden until then) ===== */
   .panel.deploy-left{
-    animation: deployLeft .85s cubic-bezier(.16,1,.3,1) both;
-    animation-delay: 10s;
     transition: transform .6s cubic-bezier(.16,1,.3,1), opacity .4s ease;
   }
   .panel.deploy-left.status-collapsed{
     transform: translateX(160%); opacity: 0; pointer-events: none;
-  }
-  @keyframes deployLeft{
-    0%{ transform:translateX(160%); opacity:0; }
-    60%{ opacity:1; }
-    100%{ transform:translateX(0); opacity:1; }
   }
 
   .panel{
@@ -492,7 +486,7 @@
   <div class="wrap">
 
     <!-- LEFT: STATUS -->
-    <div class="panel deploy-left" id="statusPanel">
+    <div class="panel deploy-left status-collapsed" id="statusPanel">
       <div class="label">TOBO G-FORCE STATUS</div>
 
       <div class="idrow"><span>PILOT</span><b>Garrett Lampi</b></div>
@@ -867,10 +861,6 @@
   const statsWallToggle = document.getElementById('statsWallToggle');
   const statsPanelContent = document.getElementById('statsPanelContent');
   const statusPanel = document.getElementById('statusPanel');
-  // once the STATUS panel's one-time page-load deploy animation finishes, drop
-  // the keyframe animation so the status-collapsed class below can freely
-  // control its transform/opacity via the toggle
-  statusPanel.addEventListener('animationend', ()=>{ statusPanel.style.animation = 'none'; });
   let statsWallOpen = false;
   statsWallToggle.addEventListener('click', ()=>{
     statsWallOpen = !statsWallOpen;
