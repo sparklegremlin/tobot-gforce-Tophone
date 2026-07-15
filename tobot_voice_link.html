@@ -393,6 +393,7 @@
   function stripSymbolsForSpeech(text){
     return text
       .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu, '')
+      .replace(/[*_~`#]/g, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
   }
