@@ -471,10 +471,11 @@
         startWaveform();
       };
       tobotAudio.onended = ()=>{ URL.revokeObjectURL(objUrl); endSpeaking(); };
-      tobotAudio.onerror = ()=>{ window.__audioBusy=false; speakBrowser(text); };
+      tobotAudio.onerror = (ev)=>{ console.warn('Tobot audio error', ev); window.__audioBusy=false; speakBrowser(text); };
       tobotAudio.src = objUrl;
       await tobotAudio.play();
     }catch(e){
+      console.warn('Tobot cloud voice failed, using device voice:', e);
       window.__audioBusy = false;
       speakBrowser(text);
     }
