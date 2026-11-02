@@ -449,36 +449,67 @@
     stopWaveform();
     if(window.__resumeCall) window.__resumeCall();
   }
+  function fetchTobotAudio(url, text){
+    return fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ tts: text })
+    }).then(resp=>{
+      const type = resp.headers.get('Content-Type') || '';
+      if(!resp.ok || type.indexOf('audio') < 0) throw new Error('no audio');
+      return resp.blob();
+    });
+  }
+  function playTobotBlob(blob, first){
+    return new Promise((resolve, reject)=>{
+      const objUrl = URL.createObjectURL(blob);
+      tobotAudio.onplay = ()=>{
+        if(first){
+          avatarWrap.classList.add('speaking');
+          statusLine.textContent='TOBOT IS TALKING...'; statusLine.classList.add('active');
+          startWaveform();
+        }
+      };
+      tobotAudio.onended = ()=>{ URL.revokeObjectURL(objUrl); resolve(); };
+      tobotAudio.onerror = (ev)=>{ URL.revokeObjectURL(objUrl); reject(ev); };
+      tobotAudio.src = objUrl;
+      const pr = tobotAudio.play();
+      if(pr && pr.catch) pr.catch(reject);
+    });
+  }
   async function speak(text){
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
     const clean = stripSymbolsForSpeech(text);
     if(!url || !clean || localStorage.getItem('tobot_cloud_voice') === 'off'){ speakBrowser(text); return; }
     window.__audioBusy = true;
     try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+    // Speed-up: first sentence is fetched on its own so it starts playing quickly;
+    // the rest is fetched at the same time and plays right after.
+    const m = clean.match(/^([\s\S]+?[.!?])\s+([\s\S]+)$/);
+    const first = m ? m[1] : clean;
+    const rest = m ? m[2] : '';
+    const p1 = fetchTobotAudio(url, first);
+    const p2 = rest ? fetchTobotAudio(url, rest) : null;
+    if(p2) p2.catch(()=>{});
     try{
-      const resp = await fetch(url, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ tts: clean })
-      });
-      const type = resp.headers.get('Content-Type') || '';
-      if(!resp.ok || type.indexOf('audio') < 0) throw new Error('no audio');
-      const blob = await resp.blob();
-      const objUrl = URL.createObjectURL(blob);
-      tobotAudio.onplay = ()=>{
-        avatarWrap.classList.add('speaking');
-        statusLine.textContent='TOBOT IS TALKING...'; statusLine.classList.add('active');
-        startWaveform();
-      };
-      tobotAudio.onended = ()=>{ URL.revokeObjectURL(objUrl); endSpeaking(); };
-      tobotAudio.onerror = (ev)=>{ console.warn('Tobot audio error', ev); window.__audioBusy=false; speakBrowser(text); };
-      tobotAudio.src = objUrl;
-      await tobotAudio.play();
+      await playTobotBlob(await p1, true);
     }catch(e){
       console.warn('Tobot cloud voice failed, using device voice:', e);
       window.__audioBusy = false;
       speakBrowser(text);
+      return;
     }
+    if(p2){
+      try{
+        await playTobotBlob(await p2, false);
+      }catch(e){
+        console.warn('Tobot cloud voice (part 2) failed, using device voice:', e);
+        window.__audioBusy = false;
+        speakBrowser(rest);
+        return;
+      }
+    }
+    endSpeaking();
   }
 
   async function sendToTobot(message){
@@ -506,14 +537,14 @@
       addBubble('tobot', clean);
       window.__waiting = false;
       speak(clean);
-      if(window.__resumeCall) setTimeout(window.__resumeCall, 800);
+      
     }catch(e){
       thinking.remove();
       const fallback = "My signal's a little glitchy right now! Try again in a bit.";
       addBubble('tobot', fallback);
       window.__waiting = false;
       speak(fallback);
-      if(window.__resumeCall) setTimeout(window.__resumeCall, 800);
+      
     }
   }
 
@@ -542,6 +573,8 @@
   let recognizing = false;
   let callActive = false;
   let callTimer = null;
+  let silenceTimer = null;
+  const SILENCE_MS = 2200; // how long Garrett can pause before Tobot answers
 
   if(SR){
     recognizer = new SR();
@@ -562,6 +595,10 @@
       let text = '';
       for(let i=0;i<event.results.length;i++){ text += event.results[i][0].transcript; }
       if(interimBubble) interimBubble.innerHTML = '<span class="who">GARRETT</span>' + text;
+      if(callActive){
+        clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(()=>{ try{ recognizer.stop(); }catch(e){} }, SILENCE_MS);
+      }
     };
     recognizer.onerror = (ev)=>{
       if(interimBubble){ interimBubble.remove(); interimBubble=null; }
@@ -576,6 +613,7 @@
       statusLine.classList.remove('active');
     };
     recognizer.onend = ()=>{
+      clearTimeout(silenceTimer);
       recognizing = false;
       micBtn.classList.remove('listening');
       avatarWrap.classList.remove('listening');
@@ -606,6 +644,8 @@
     }
     function endCall(){
       callActive = false;
+      recognizer.continuous = false;
+      clearTimeout(silenceTimer);
       clearTimeout(callTimer);
       try{ recognizer.abort(); }catch(err){}
       callBtn.classList.remove('on');
@@ -617,6 +657,7 @@
     }
     function startCall(){
       callActive = true;
+      recognizer.continuous = true;
       callBtn.classList.add('on');
       callBtn.innerHTML = '&#128222; END CALL';
       document.getElementById('callHint').textContent = 'ON CALL \u2014 JUST TALK, TOBOT IS LISTENING';
@@ -624,7 +665,7 @@
       window.speechSynthesis && speechSynthesis.cancel();
       scheduleListen(100);
     }
-    window.__resumeCall = ()=>{ if(callActive) scheduleListen(500); };
+    window.__resumeCall = ()=>{ if(callActive) scheduleListen(150); };
     window.__endCall = endCall;
     callBtn.addEventListener('click', ()=>{ callActive ? endCall() : startCall(); });
 
