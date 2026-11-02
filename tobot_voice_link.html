@@ -524,7 +524,15 @@
     hydraulic:'sounds/HydraulicMovement.mp3',
     ding:    'sounds/Notificationboop.mp3',
     party:   'sounds/PartyMusic.mp3',
-    wow:     'sounds/Wow!Sound.mp3'
+    wow:     'sounds/Wow!Sound.mp3',
+    meow:    'sounds/CatMeow.mp3',
+    creak:   'sounds/CreakingDoor.mp3',
+    roar:    'sounds/DinoRoar.mp3',
+    bark:    'sounds/DogBark.mp3',
+    footsteps:'sounds/Footsteps.mp3',
+    whimper: 'sounds/PuppyWhimper.mp3',
+    thunder: 'sounds/Thunder.mp3',
+    splash:  'sounds/WaterSplash.mp3'
   };
   // Words Tobot might use for each sound (he may write [whoosh], *WHOOSH!*, *laser blast*, etc.)
   const CUE_WORDS = {
@@ -538,7 +546,15 @@
     hydraulic:['hydraulic','hydraulics','transform','transforming','piston','servo','clank','mechanical'],
     ding:    ['ding','boop','ping','notification','notify','chime'],
     party:   ['party','music','celebrate','celebration','dance','disco'],
-    wow:     ['wow','amazing','awesome','whoa']
+    wow:     ['wow','amazing','awesome','whoa'],
+    meow:    ['meow','cat','kitty','kitten','purr','mew'],
+    creak:   ['creak','creaking','door','squeak'],
+    roar:    ['roar','dino','dinosaur','rawr','trex'],
+    bark:    ['bark','dog','woof','arf','ruff'],
+    footsteps:['footsteps','footstep','steps','walking','stomp','stomping','tiptoe'],
+    whimper: ['whimper','puppy','whine','whining','pup'],
+    thunder: ['thunder','storm','lightning','rumble','thunderclap'],
+    splash:  ['splash','water','dive','swim','plop']
   };
   function cueFromText(inner){
     const words = inner.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(Boolean)
