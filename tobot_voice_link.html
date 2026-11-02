@@ -479,34 +479,53 @@
       if(pr && pr.catch) pr.catch(reject);
     });
   }
-  async function speak(text){
+  // Speaks a reply in pieces. items = [{t:'text',text}, {t:'cue',key}] in the order Tobot wrote them,
+  // so each sound lands exactly where Tobot put it.
+  async function speak(text, items){
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
-    const clean = stripSymbolsForSpeech(text);
-    if(!url || !clean || localStorage.getItem('tobot_cloud_voice') === 'off'){ speakBrowser(text); return; }
+    if(!items || !items.length) items = [{t:'text', text:text}];
+    const allCues = items.filter(it=>it.t==='cue').map(it=>it.key);
+    const plain = stripSymbolsForSpeech(items.filter(it=>it.t==='text').map(it=>it.text).join(' '));
+    if(!url || !plain || localStorage.getItem('tobot_cloud_voice') === 'off'){
+      playCues(allCues); speakBrowser(plain || text); return;
+    }
+    // clean the text pieces; split the very first sentence off so speech starts quickly
+    const seq = [];
+    let firstText = true;
+    items.forEach(it=>{
+      if(it.t === 'cue'){ seq.push(it); return; }
+      const c = stripSymbolsForSpeech(it.text);
+      if(!c) return;
+      if(firstText){
+        firstText = false;
+        const m = c.match(/^([\s\S]+?[.!?])\s+([\s\S]+)$/);
+        if(m){ seq.push({t:'text', text:m[1]}); seq.push({t:'text', text:m[2]}); return; }
+      }
+      seq.push({t:'text', text:c});
+    });
     window.__audioBusy = true;
     try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
-    // Speed-up: first sentence is fetched on its own so it starts playing quickly;
-    // the rest is fetched at the same time and plays right after.
-    const m = clean.match(/^([\s\S]+?[.!?])\s+([\s\S]+)$/);
-    const first = m ? m[1] : clean;
-    const rest = m ? m[2] : '';
-    const p1 = fetchTobotAudio(url, first);
-    const p2 = rest ? fetchTobotAudio(url, rest) : null;
-    if(p2) p2.catch(()=>{});
-    try{
-      await playTobotBlob(await p1, true);
-    }catch(e){
-      console.warn('Tobot cloud voice failed, using device voice:', e);
-      window.__audioBusy = false;
-      speakBrowser(text);
-      return;
-    }
-    if(p2){
+    // fetch audio for text pieces, never more than two requests at once
+    const jobs = seq.map(()=>null);
+    const startJob = (k)=>{ if(k < seq.length && seq[k].t==='text' && !jobs[k]){ jobs[k] = fetchTobotAudio(url, seq[k].text); jobs[k].catch(()=>{}); } };
+    const nextTextIndex = (from)=>{ for(let k=from; k<seq.length; k++){ if(seq[k].t==='text') return k; } return -1; };
+    let firstPlayed = true;
+    startJob(nextTextIndex(0));
+    startJob(nextTextIndex(nextTextIndex(0)+1));
+    for(let k=0; k<seq.length; k++){
+      const it = seq[k];
+      if(it.t === 'cue'){ playCues([it.key]); continue; }
       try{
-        await playTobotBlob(await p2, false);
+        const blob = await jobs[k];
+        startJob(nextTextIndex(k+1));
+        await playTobotBlob(blob, firstPlayed);
+        firstPlayed = false;
+        startJob(nextTextIndex(k+2));
       }catch(e){
-        console.warn('Tobot cloud voice (part 2) failed, using device voice:', e);
+        console.warn('Tobot cloud voice failed, using device voice:', e);
         window.__audioBusy = false;
+        const rest = seq.slice(k).filter(x=>x.t==='text').map(x=>x.text).join(' ');
+        playCues(seq.slice(k).filter(x=>x.t==='cue').map(x=>x.key));
         speakBrowser(rest);
         return;
       }
@@ -584,6 +603,22 @@
     }).replace(/^[\s\u{1F50A}\u{1F509}]+/u, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
     return { cleaned, cues };
   }
+  function buildItems(text){
+    const re = /(?:\u{1F50A}|\u{1F509}|\u{1F4A5})?\s*(\[|\*{1,2})\s*([^\]*\n]{1,40}?)\s*(\]|\*{1,2})/gu;
+    const items = [];
+    let last = 0, m;
+    const push = (t)=>{ const c = t.replace(/[ \t]{2,}/g,' ').replace(/\s+([.,!?])/g,'$1').trim(); if(c) items.push({t:'text', text:c}); };
+    while((m = re.exec(text)) !== null){
+      const key = cueFromText(m[2]);
+      if(key && SOUND_CUES[key]){
+        push(text.slice(last, m.index));
+        items.push({t:'cue', key:key});
+        last = m.index + m[0].length;
+      }
+    }
+    push(text.slice(last));
+    return items;
+  }
   function playCues(cues){
     cues.slice(0, 3).forEach((key, i)=>{
       setTimeout(()=>{
@@ -633,11 +668,11 @@
       stopThinkingSound();
       thinking.remove();
       const rawReply = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
-      const { cleaned: clean, cues } = extractCues(rawReply);
+      const { cleaned: clean } = extractCues(rawReply);
+      const items = buildItems(rawReply);
       addBubble('tobot', clean || rawReply);
       window.__waiting = false;
-      playCues(cues);
-      speak(clean || rawReply);
+      speak(clean || rawReply, items);
       
     }catch(e){
       stopThinkingSound();
