@@ -512,6 +512,32 @@
     endSpeaking();
   }
 
+  // ---- sound cues: Tobot writes [whoosh] etc. and the page plays the matching file in /sounds ----
+  const SOUND_CUES = {
+    laser:   'sounds/LaserGunShot.mp3',
+    blastoff:'sounds/Shortblastoff.mp3',
+    whoosh:  'sounds/SimpleWhoosh.mp3',
+    beep:    'sounds/Softbootbeep.mp3',
+    siren:   'sounds/police-Firetrucksiren.mp3',
+    compute: 'sounds/robot-compute-beeps.mp3'
+  };
+  function extractCues(text){
+    const cues = [];
+    const cleaned = text.replace(/\[\s*([A-Za-z]+)\s*\]/g, (m, word)=>{
+      const key = word.toLowerCase();
+      if(SOUND_CUES[key]){ cues.push(key); return ''; }
+      return m;
+    }).replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+    return { cleaned, cues };
+  }
+  function playCues(cues){
+    cues.slice(0, 3).forEach((key, i)=>{
+      setTimeout(()=>{
+        try{ const a = new Audio(SOUND_CUES[key]); a.volume = 0.7; const pr = a.play(); if(pr && pr.catch) pr.catch(()=>{}); }catch(e){}
+      }, i * 700);
+    });
+  }
+
   async function sendToTobot(message){
     addBubble('garrett', message);
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
@@ -533,10 +559,12 @@
       });
       const text = await resp.text();
       thinking.remove();
-      const clean = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
-      addBubble('tobot', clean);
+      const rawReply = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
+      const { cleaned: clean, cues } = extractCues(rawReply);
+      addBubble('tobot', clean || rawReply);
       window.__waiting = false;
-      speak(clean);
+      playCues(cues);
+      speak(clean || rawReply);
       
     }catch(e){
       thinking.remove();
@@ -574,7 +602,7 @@
   let callActive = false;
   let callTimer = null;
   let silenceTimer = null;
-  const SILENCE_MS = 2200; // how long Garrett can pause before Tobot answers
+  const SILENCE_MS = 1200; // how long Garrett can pause before Tobot answers
 
   if(SR){
     recognizer = new SR();
