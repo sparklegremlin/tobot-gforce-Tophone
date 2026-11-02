@@ -519,16 +519,26 @@
     whoosh:  'sounds/SimpleWhoosh.mp3',
     beep:    'sounds/Softbootbeep.mp3',
     siren:   'sounds/police-Firetrucksiren.mp3',
-    compute: 'sounds/robot-compute-beeps.mp3'
+    compute: 'sounds/robot-compute-beeps.mp3',
+    cheer:   'sounds/CrowdCheers.mp3',
+    hydraulic:'sounds/HydraulicMovement.mp3',
+    ding:    'sounds/Notificationboop.mp3',
+    party:   'sounds/PartyMusic.mp3',
+    wow:     'sounds/Wow!Sound.mp3'
   };
   // Words Tobot might use for each sound (he may write [whoosh], *WHOOSH!*, *laser blast*, etc.)
   const CUE_WORDS = {
     laser:   ['laser','pew','zap','blaster','lasergun'],
     blastoff:['blastoff','blast','liftoff','launch','rocket','boom'],
     whoosh:  ['whoosh','swoosh','woosh','whooosh','zoom','fly'],
-    beep:    ['beep','boop','ping','bleep'],
+    beep:    ['beep','bleep'],
     siren:   ['siren','alarm','alert','wee','woo'],
-    compute: ['compute','computing','processing','beeps','scanning','analyzing','data']
+    compute: ['compute','computing','processing','beeps','scanning','analyzing','data'],
+    cheer:   ['cheer','cheers','cheering','applause','crowd','hooray','yay','woohoo'],
+    hydraulic:['hydraulic','hydraulics','transform','transforming','piston','servo','clank','mechanical'],
+    ding:    ['ding','boop','ping','notification','notify','chime'],
+    party:   ['party','music','celebrate','celebration','dance','disco'],
+    wow:     ['wow','amazing','awesome','whoa']
   };
   function cueFromText(inner){
     const words = inner.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(Boolean)
@@ -553,7 +563,7 @@
   function playCues(cues){
     cues.slice(0, 3).forEach((key, i)=>{
       setTimeout(()=>{
-        try{ const a = new Audio(SOUND_CUES[key]); a.volume = 0.7; const pr = a.play(); if(pr && pr.catch) pr.catch(()=>{}); }catch(e){}
+        try{ const a = new Audio(SOUND_CUES[key]); a.volume = 0.7; const pr = a.play(); if(pr && pr.catch) pr.catch(()=>{}); setTimeout(()=>{ try{ a.pause(); }catch(e){} }, 8000); }catch(e){}
       }, i * 700);
     });
   }
