@@ -465,6 +465,8 @@
       const objUrl = URL.createObjectURL(blob);
       tobotAudio.onplay = ()=>{
         if(first){
+          const T = window.__timing || {};
+          if(T.sent){ T.voice = performance.now(); console.log('[Tobot timing] Tobot wrote reply: ' + ((T.reply-T.sent)/1000).toFixed(1) + 's | voice ready after reply: ' + ((T.voice-T.reply)/1000).toFixed(1) + 's | total: ' + ((T.voice-T.sent)/1000).toFixed(1) + 's'); }
           avatarWrap.classList.add('speaking');
           statusLine.textContent='TOBOT IS TALKING...'; statusLine.classList.add('active');
           startWaveform();
@@ -584,7 +586,23 @@
     });
   }
 
+  // ---- thinking sound + timing ----
+  let thinkingAudio = null;
+  function startThinkingSound(){
+    try{
+      thinkingAudio = new Audio('sounds/robot-compute-beeps.mp3');
+      thinkingAudio.volume = 0.35;
+      thinkingAudio.loop = true;
+      const pr = thinkingAudio.play(); if(pr && pr.catch) pr.catch(()=>{});
+    }catch(e){}
+  }
+  function stopThinkingSound(){
+    try{ if(thinkingAudio){ thinkingAudio.pause(); thinkingAudio = null; } }catch(e){}
+  }
+  window.__timing = {};
+
   async function sendToTobot(message){
+    window.__timing = { sent: performance.now() };
     addBubble('garrett', message);
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
     if(!url){
@@ -593,6 +611,7 @@
       return;
     }
     window.__waiting = true;
+    startThinkingSound();
     const thinking = addBubble('tobot', 'thinking...', false);
     thinking.classList.add('interim');
     statusLine.textContent = 'TOBOT IS THINKING...';
@@ -604,6 +623,8 @@
         body: JSON.stringify({ message })
       });
       const text = await resp.text();
+      window.__timing.reply = performance.now();
+      stopThinkingSound();
       thinking.remove();
       const rawReply = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
       const { cleaned: clean, cues } = extractCues(rawReply);
@@ -613,6 +634,7 @@
       speak(clean || rawReply);
       
     }catch(e){
+      stopThinkingSound();
       thinking.remove();
       const fallback = "My signal's a little glitchy right now! Try again in a bit.";
       addBubble('tobot', fallback);
