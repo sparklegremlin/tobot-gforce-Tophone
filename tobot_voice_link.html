@@ -407,8 +407,8 @@
       .trim();
   }
 
-  function speak(text){
-    if(!window.speechSynthesis) return;
+  function speakBrowser(text){
+    if(!window.speechSynthesis){ window.__audioBusy=false; return; }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(stripSymbolsForSpeech(text));
     const v = pickVoice();
@@ -427,6 +427,57 @@
       if(window.__resumeCall) window.__resumeCall();
     };
     window.speechSynthesis.speak(u);
+  }
+
+  // ---- cloud voice (ElevenLabs via the Worker), falls back to browser voice ----
+  const tobotAudio = new Audio();
+  window.__audioBusy = false;
+  let audioUnlocked = false;
+  function unlockAudio(){
+    if(audioUnlocked) return; audioUnlocked = true;
+    try{
+      tobotAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=';
+      const p = tobotAudio.play(); if(p && p.catch) p.catch(()=>{});
+    }catch(e){}
+  }
+  ['pointerdown','touchstart','click'].forEach(ev=>document.addEventListener(ev, unlockAudio, {once:true, passive:true}));
+
+  function endSpeaking(){
+    window.__audioBusy = false;
+    avatarWrap.classList.remove('speaking');
+    statusLine.textContent='TAP MIC TO TALK'; statusLine.classList.remove('active');
+    stopWaveform();
+    if(window.__resumeCall) window.__resumeCall();
+  }
+  async function speak(text){
+    const url = (localStorage.getItem('tobot_relay_url')||'').trim();
+    const clean = stripSymbolsForSpeech(text);
+    if(!url || !clean || localStorage.getItem('tobot_cloud_voice') === 'off'){ speakBrowser(text); return; }
+    window.__audioBusy = true;
+    try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+    try{
+      const resp = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ tts: clean })
+      });
+      const type = resp.headers.get('Content-Type') || '';
+      if(!resp.ok || type.indexOf('audio') < 0) throw new Error('no audio');
+      const blob = await resp.blob();
+      const objUrl = URL.createObjectURL(blob);
+      tobotAudio.onplay = ()=>{
+        avatarWrap.classList.add('speaking');
+        statusLine.textContent='TOBOT IS TALKING...'; statusLine.classList.add('active');
+        startWaveform();
+      };
+      tobotAudio.onended = ()=>{ URL.revokeObjectURL(objUrl); endSpeaking(); };
+      tobotAudio.onerror = ()=>{ window.__audioBusy=false; speakBrowser(text); };
+      tobotAudio.src = objUrl;
+      await tobotAudio.play();
+    }catch(e){
+      window.__audioBusy = false;
+      speakBrowser(text);
+    }
   }
 
   async function sendToTobot(message){
@@ -543,7 +594,7 @@
     };
 
     // ---- call mode: hands-free back and forth ----
-    function tobotBusy(){ return window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending); }
+    function tobotBusy(){ return window.__audioBusy || (window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)); }
     function scheduleListen(ms){
       clearTimeout(callTimer);
       callTimer = setTimeout(()=>{
