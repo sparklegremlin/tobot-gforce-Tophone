@@ -536,7 +536,8 @@
     thunder: 'sounds/Thunder.mp3',
     splash:  'sounds/WaterSplash.mp3',
     engine:  'sounds/CarEngine.mp3',
-    jet:     'sounds/JetThruster.mp3'
+    jet:     'sounds/JetThruster.mp3',
+    uhoh:    'sounds/UhOhThud.mp3'
   };
   // Words Tobot might use for each sound (he may write [whoosh], *WHOOSH!*, *laser blast*, etc.)
   const CUE_WORDS = {
@@ -560,7 +561,8 @@
     thunder: ['thunder','storm','lightning','rumble','thunderclap'],
     splash:  ['splash','water','dive','swim','plop'],
     engine:  ['engine','vroom','vrooom','rev','revving','car','drive','driving'],
-    jet:     ['jet','thruster','thrusters','thrust','boost','afterburner']
+    jet:     ['jet','thruster','thrusters','thrust','boost','afterburner'],
+    uhoh:    ['uhoh','oops','oopsie','thud','bonk','crash','whoops','uh','oh']
   };
   function cueFromText(inner){
     const words = inner.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(Boolean)
