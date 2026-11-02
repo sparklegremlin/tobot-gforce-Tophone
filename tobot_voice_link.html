@@ -521,13 +521,33 @@
     siren:   'sounds/police-Firetrucksiren.mp3',
     compute: 'sounds/robot-compute-beeps.mp3'
   };
+  // Words Tobot might use for each sound (he may write [whoosh], *WHOOSH!*, *laser blast*, etc.)
+  const CUE_WORDS = {
+    laser:   ['laser','pew','zap','blaster','lasergun'],
+    blastoff:['blastoff','blast','liftoff','launch','rocket','boom'],
+    whoosh:  ['whoosh','swoosh','woosh','whooosh','zoom','fly'],
+    beep:    ['beep','boop','ping','bleep'],
+    siren:   ['siren','alarm','alert','wee','woo'],
+    compute: ['compute','computing','processing','beeps','scanning','analyzing','data']
+  };
+  function cueFromText(inner){
+    const words = inner.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(Boolean)
+      .map(w => w.replace(/(.)\1{2,}/g, '$1$1')); // whoooosh -> whoosh
+    for(const key in CUE_WORDS){
+      for(const w of words){
+        if(w === key || CUE_WORDS[key].indexOf(w) > -1 || CUE_WORDS[key].indexOf(w.replace(/(.)\1+/g,'$1')) > -1 || w.replace(/(.)\1+/g,'$1') === key.replace(/(.)\1+/g,'$1')) return key;
+      }
+    }
+    return null;
+  }
   function extractCues(text){
     const cues = [];
-    const cleaned = text.replace(/\[\s*([A-Za-z]+)\s*\]/g, (m, word)=>{
-      const key = word.toLowerCase();
-      if(SOUND_CUES[key]){ cues.push(key); return ''; }
+    // [cue], *cue*, **cue**, with an optional speaker emoji in front
+    const cleaned = text.replace(/(?:\u{1F50A}|\u{1F509}|\u{1F4A5})?\s*(\[|\*{1,2})\s*([^\]*\n]{1,40}?)\s*(\]|\*{1,2})/gu, (m, open, inner)=>{
+      const key = cueFromText(inner);
+      if(key && SOUND_CUES[key]){ cues.push(key); return ''; }
       return m;
-    }).replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+    }).replace(/^[\s\u{1F50A}\u{1F509}]+/u, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
     return { cleaned, cues };
   }
   function playCues(cues){
