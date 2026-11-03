@@ -121,6 +121,13 @@
     color:var(--white); background:linear-gradient(180deg,#1f9d6b,#0f6b47);
     border:2px solid rgba(63,240,232,0.6); box-shadow:0 0 16px rgba(31,157,107,0.6);
   }
+  #stopBtn{
+    display:block; margin:6px auto 2px; padding:9px 22px; border-radius:30px; width:100%;
+    font-family:inherit; font-size:13px; font-weight:bold; letter-spacing:2px; cursor:pointer;
+    color:var(--white); background:rgba(224,71,91,0.15); border:2px solid rgba(224,71,91,0.7);
+    opacity:0.45; transition:opacity .2s;
+  }
+  #stopBtn.live{ opacity:1; box-shadow:0 0 14px rgba(224,71,91,0.6); }
   #callBtn.on{ background:linear-gradient(180deg,#e0475b,#9c1f33); box-shadow:0 0 18px rgba(224,71,91,0.7); animation:micPulse 1.4s ease-in-out infinite; }
   @keyframes micPulse{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.08);} }
   .mic-label{ text-align:center; font-size:11px; letter-spacing:2px; color:var(--dim); margin-bottom:4px; }
@@ -243,6 +250,7 @@
         <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
       </div>
       <button id="callBtn">&#128222; START CALL</button>
+      <button id="stopBtn">&#9209; STOP TOBOT</button>
       <div class="mic-label" id="callHint">TAP ONCE, THEN JUST TALK!</div>
       <button id="gearBtn" title="Settings">&#9881; SETTINGS</button>
     </div>
@@ -456,7 +464,9 @@
       body: JSON.stringify({ tts: text })
     }).then(resp=>{
       const type = resp.headers.get('Content-Type') || '';
-      if(!resp.ok || type.indexOf('audio') < 0) throw new Error('no audio');
+      if(!resp.ok || type.indexOf('audio') < 0){
+        return resp.text().then(t=>{ window.__lastVoiceError = resp.status + ' ' + t.slice(0,300); throw new Error('voice ' + resp.status + ': ' + t.slice(0,300)); });
+      }
       return resp.blob();
     });
   }
@@ -482,6 +492,7 @@
   // Speaks a reply in pieces. items = [{t:'text',text}, {t:'cue',key}] in the order Tobot wrote them,
   // so each sound lands exactly where Tobot put it.
   async function speak(text, items){
+    const myToken = window.__token;
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
     if(!items || !items.length) items = [{t:'text', text:text}];
     const allCues = items.filter(it=>it.t==='cue').map(it=>it.key);
@@ -507,22 +518,27 @@
     try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
     // fetch audio for text pieces, never more than two requests at once
     const jobs = seq.map(()=>null);
-    const startJob = (k)=>{ if(k < seq.length && seq[k].t==='text' && !jobs[k]){ jobs[k] = fetchTobotAudio(url, seq[k].text); jobs[k].catch(()=>{}); } };
+    const startJob = (k)=>{ if(k >= 0 && k < seq.length && seq[k].t==='text' && !jobs[k]){ jobs[k] = fetchTobotAudio(url, seq[k].text); jobs[k].catch(()=>{}); } };
     const nextTextIndex = (from)=>{ for(let k=from; k<seq.length; k++){ if(seq[k].t==='text') return k; } return -1; };
     let firstPlayed = true;
     startJob(nextTextIndex(0));
-    startJob(nextTextIndex(nextTextIndex(0)+1));
+    { const f0 = nextTextIndex(0); if(f0 >= 0) startJob(nextTextIndex(f0+1)); }
     for(let k=0; k<seq.length; k++){
       const it = seq[k];
+      if(myToken !== window.__token) return;
       if(it.t === 'cue'){ playCues([it.key]); continue; }
       try{
         const blob = await jobs[k];
+        if(myToken !== window.__token) return;
         startJob(nextTextIndex(k+1));
         await playTobotBlob(blob, firstPlayed);
+        if(myToken !== window.__token) return;
         firstPlayed = false;
         startJob(nextTextIndex(k+2));
       }catch(e){
+        if(myToken !== window.__token) return;
         console.warn('Tobot cloud voice failed, using device voice:', e);
+        statusLine.textContent = 'BACKUP VOICE (SEE CONSOLE)';
         window.__audioBusy = false;
         const rest = seq.slice(k).filter(x=>x.t==='text').map(x=>x.text).join(' ');
         playCues(seq.slice(k).filter(x=>x.t==='cue').map(x=>x.key));
@@ -530,6 +546,7 @@
         return;
       }
     }
+    if(myToken !== window.__token) return;
     endSpeaking();
   }
 
@@ -620,12 +637,44 @@
     return items;
   }
   function playCues(cues){
-    cues.slice(0, 3).forEach((key, i)=>{
+    const myToken = window.__token;
+    cues.slice(0, 3).forEach((key, k)=>{
       setTimeout(()=>{
-        try{ const a = new Audio(SOUND_CUES[key]); a.volume = 0.7; const pr = a.play(); if(pr && pr.catch) pr.catch(()=>{}); setTimeout(()=>{ try{ a.pause(); }catch(e){} }, 8000); }catch(e){}
-      }, i * 700);
+        if(myToken !== window.__token) return;
+        try{
+          const a = new Audio(SOUND_CUES[key]); a.volume = 0.7;
+          activeCueAudios.push(a);
+          a.onended = ()=>{ const ix = activeCueAudios.indexOf(a); if(ix > -1) activeCueAudios.splice(ix,1); };
+          const pr = a.play(); if(pr && pr.catch) pr.catch(()=>{});
+          setTimeout(()=>{ try{ a.pause(); }catch(e){} }, 8000);
+        }catch(e){}
+      }, k * 700);
     });
   }
+
+  // ---- stop / cancel ----
+  window.__token = 0;
+  const activeCueAudios = [];
+  function stopAll(){
+    window.__token++;
+    try{ tobotAudio.pause(); tobotAudio.removeAttribute('src'); tobotAudio.load(); }catch(e){}
+    try{ window.speechSynthesis && speechSynthesis.cancel(); }catch(e){}
+    try{ stopThinkingSound(); }catch(e){}
+    while(activeCueAudios.length){ try{ activeCueAudios.pop().pause(); }catch(e){} }
+    window.__audioBusy = false;
+    window.__waiting = false;
+    avatarWrap.classList.remove('speaking');
+    try{ stopWaveform(); }catch(e){}
+    statusLine.textContent = 'STOPPED'; statusLine.classList.remove('active');
+    document.querySelectorAll('.interim').forEach(el=>{ if(/thinking/.test(el.textContent)) el.remove(); });
+    if(window.__resumeCall) window.__resumeCall();
+  }
+  document.getElementById('stopBtn').addEventListener('click', stopAll);
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') stopAll(); });
+  setInterval(()=>{
+    const busy = window.__audioBusy || window.__waiting || (window.speechSynthesis && speechSynthesis.speaking);
+    document.getElementById('stopBtn').classList.toggle('live', !!busy);
+  }, 250);
 
   // ---- thinking sound + timing ----
   let thinkingAudio = null;
@@ -644,6 +693,7 @@
 
   async function sendToTobot(message){
     window.__timing = { sent: performance.now() };
+    const sendToken = window.__token;
     addBubble('garrett', message);
     const url = (localStorage.getItem('tobot_relay_url')||'').trim();
     if(!url){
@@ -672,6 +722,7 @@
       const items = buildItems(rawReply);
       addBubble('tobot', clean || rawReply);
       window.__waiting = false;
+      if(sendToken !== window.__token){ return; } // stopped while Tobot was thinking: show the text, don't speak it
       speak(clean || rawReply, items);
       
     }catch(e){
