@@ -170,6 +170,13 @@
   .bubble .who{ display:block; font-size:11px; letter-spacing:2px; color:var(--dim); margin-bottom:4px; font-family:var(--font-mono); }
   .bubble.tobot .who{ color:var(--cyan); }
   .bubble.garrett .who{ color:var(--gold); }
+  .bubble.badge-card{ text-align:center; border-color:rgba(240,168,48,0.6); box-shadow:0 0 18px rgba(240,168,48,0.25); }
+  .bubble.badge-card .who{ color:var(--gold); }
+  .badge-card img{ width:200px; max-width:70%; height:auto; border-radius:50%; margin:6px auto 8px; display:block;
+    box-shadow:0 0 22px rgba(63,240,232,0.45); border:2px solid rgba(240,168,48,0.7); }
+  .badge-card .bname{ font-size:18px; font-weight:bold; color:var(--gold); letter-spacing:1px; }
+  .badge-card .bdesc{ font-size:14px; color:var(--white); margin-top:4px; }
+  .badge-card .bnote{ font-size:12px; color:var(--dim); margin-top:8px; letter-spacing:1px; }
   .bubble.interim{ opacity:0.55; font-style:italic; }
 
   /* ---------- text input row ---------- */
@@ -224,7 +231,7 @@
 
   <div class="navtabs">
     <a class="navtab" href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_pilot_hud.html">PILOT HUD</a>
-    <a class="navtab" id="missionTab" href="#">MISSION HUD</a>
+    <a class="navtab" id="missionTab" href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_mission_hud.html">MISSION HUD</a>
     <a class="navtab" href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_hangar.html">HANGAR</a>
   </div>
 
@@ -323,7 +330,6 @@
   const typeInput = document.getElementById('typeInput');
   const sendBtn = document.getElementById('sendBtn');
 
-  document.getElementById('missionTab').onclick = (e)=>{ e.preventDefault(); alert('Mission HUD is coming soon!'); };
 
   function loadSettings(){
     relayUrlInput.value = localStorage.getItem('tobot_relay_url') || '';
@@ -652,6 +658,55 @@
     });
   }
 
+  // ---- badges: Tobot writes [badge: Name | what it was for] and the worker draws it ----
+  function extractBadge(text){
+    const re = /\[\s*badge\s*[:\-]\s*([^\]|]{1,80}?)\s*(?:[|\u2014\u2013]\s*([^\]]{0,240}))?\]/i;
+    const m = text.match(re);
+    if(!m) return { text: text, badge: null };
+    const rest = text.replace(m[0], '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+    return { text: rest, badge: { name: m[1].trim(), desc: (m[2] || '').trim() } };
+  }
+  function escapeHtmlText(t){ return String(t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  async function requestBadge(badge){
+    const url = (localStorage.getItem('tobot_relay_url')||'').trim();
+    if(!url) return;
+    const card = document.createElement('div');
+    card.className = 'bubble tobot badge-card';
+    card.innerHTML = '<span class="who">NEW BADGE</span><div class="bname">Forging your badge...</div>';
+    chatLog.appendChild(card);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    const fail = (msg)=>{ card.innerHTML = '<span class="who">BADGE</span><div class="bdesc">' + msg + '</div>'; };
+    try{
+      const resp = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ badge: badge })
+      });
+      const data = await resp.json();
+      if(!data.ok){
+        if(data.error === 'daily_limit') fail("Today's picture limit is used up. Ask Mission Control about your badge tomorrow!");
+        else if(data.error === 'not_configured') fail("My grown-up still needs to finish setting up badge art.");
+        else fail("The badge machine hiccuped. Ask Mission Control to check it!");
+        console.warn('Badge failed:', data);
+        return;
+      }
+      const src = data.img_data || (data.badge && data.badge.img) || '';
+      card.innerHTML = '<span class="who">NEW BADGE EARNED!</span>' +
+        '<img alt="Badge" src="' + src + '">' +
+        '<div class="bname">' + escapeHtmlText(data.badge.name) + '</div>' +
+        (data.badge.desc ? '<div class="bdesc">' + escapeHtmlText(data.badge.desc) + '</div>' : '') +
+        '<div class="bnote">SAVED TO YOUR MISSION HUD BADGE WALL</div>';
+      const im = card.querySelector('img');
+      if(im) im.onload = ()=>{ chatLog.scrollTop = chatLog.scrollHeight; };
+      chatLog.scrollTop = chatLog.scrollHeight;
+      saveHistoryEntry('tobot', 'New badge earned: ' + data.badge.name);
+      playCues(['cheer']);
+    }catch(e){
+      console.warn('Badge request failed:', e);
+      fail("The badge machine hiccuped. Ask Mission Control to check it!");
+    }
+  }
+
   // ---- stop / cancel ----
   window.__token = 0;
   const activeCueAudios = [];
@@ -717,13 +772,16 @@
       window.__timing.reply = performance.now();
       stopThinkingSound();
       thinking.remove();
-      const rawReply = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
+      const rawAll = text && text.trim() ? text.trim() : "Hmm, I didn't catch that. Can you say it again?";
+      const bx = extractBadge(rawAll);
+      const rawReply = bx.badge ? bx.text : rawAll;
       const { cleaned: clean } = extractCues(rawReply);
       const items = buildItems(rawReply);
-      addBubble('tobot', clean || rawReply);
+      if(clean || !bx.badge) addBubble('tobot', clean || rawReply);
       window.__waiting = false;
+      if(bx.badge) requestBadge(bx.badge); // starts drawing right away, while Tobot talks
       if(sendToken !== window.__token){ return; } // stopped while Tobot was thinking: show the text, don't speak it
-      speak(clean || rawReply, items);
+      if(clean || !bx.badge) speak(clean || rawReply, items);
       
     }catch(e){
       stopThinkingSound();
