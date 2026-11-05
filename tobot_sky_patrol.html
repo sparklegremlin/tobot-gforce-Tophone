@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tobot Sky Patrol</title>
+<style>
+  :root{ --cyan:#3ff0e8; --gold:#f0a830; --purple:#7a3cff; --bg:#05050f; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; background:var(--bg); color:#e8f6ff; font-family:"Courier New",monospace; overflow:hidden; touch-action:none; }
+  #wrap{ position:fixed; inset:0; display:flex; flex-direction:column; }
+  #nav{ display:flex; gap:8px; justify-content:center; padding:6px; flex-wrap:wrap; }
+  #nav a{ color:#9aa3d6; text-decoration:none; font-size:12px; letter-spacing:2px; padding:6px 14px; border:1px solid rgba(120,140,255,0.25); border-radius:20px; background:rgba(20,20,50,0.6); }
+  #stage{ position:relative; flex:1; min-height:0; }
+  canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .hud{ position:absolute; top:8px; left:0; right:0; display:flex; justify-content:space-between; padding:0 14px; pointer-events:none; font-weight:bold; letter-spacing:2px; text-shadow:0 0 8px rgba(63,240,232,0.7); }
+  .hud span b{ color:var(--gold); }
+  #lives{ color:#ff5d7a; }
+  #say{ position:absolute; top:44px; left:50%; transform:translateX(-50%); background:rgba(20,10,60,0.85); border:1px solid var(--cyan); border-radius:14px; padding:8px 16px; font-size:15px; opacity:0; transition:opacity .25s; pointer-events:none; text-align:center; max-width:90%; }
+  #say.on{ opacity:1; }
+  .overlay{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:rgba(5,5,20,0.72); text-align:center; padding:20px; }
+  .overlay.hidden{ display:none; }
+  h1{ margin:0; font-size:clamp(26px,6vw,48px); letter-spacing:4px; color:var(--cyan); text-shadow:0 0 18px rgba(63,240,232,0.7); }
+  .sub{ color:#b8c4ff; font-size:clamp(13px,2.4vw,17px); max-width:520px; line-height:1.5; }
+  button{ font-family:inherit; font-weight:bold; letter-spacing:3px; font-size:18px; padding:14px 34px; border:none; border-radius:30px; background:var(--cyan); color:#02131a; cursor:pointer; box-shadow:0 0 18px rgba(63,240,232,0.5); }
+  button.small{ font-size:12px; padding:8px 16px; background:rgba(20,20,50,0.8); color:#9aa3d6; border:1px solid rgba(120,140,255,0.3); box-shadow:none; }
+  #ctl{ position:absolute; bottom:8px; right:10px; display:flex; gap:8px; }
+  .big{ font-size:clamp(30px,8vw,54px); color:var(--gold); }
+  #tbar{ flex:none; display:flex; gap:12px; align-items:stretch; padding:8px 12px; background:rgba(14,10,46,0.96); border-top:1px solid rgba(63,240,232,0.35); }
+  #tbar.min #tbody, #tbar.min #tform{ display:none; }
+  #tface{ flex:none; width:54px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:10px; letter-spacing:2px; color:var(--cyan); }
+  #tface .orb{ width:42px; height:42px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #d8fffd, #3ff0e8 45%, #4b2bb8); box-shadow:0 0 12px rgba(63,240,232,0.6); }
+  #tface.talk .orb{ animation:pulse .5s infinite alternate; }
+  @keyframes pulse{ from{ transform:scale(1);} to{ transform:scale(1.14); box-shadow:0 0 22px rgba(63,240,232,0.95);} }
+  #tbody{ flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:3px; }
+  #tname{ font-size:11px; letter-spacing:3px; color:var(--gold); }
+  #ttext{ font-size:clamp(13px,2vw,16px); line-height:1.35; max-height:4.2em; overflow:auto; }
+  #tform{ flex:none; display:flex; flex-direction:column; justify-content:center; gap:6px; width:min(260px,34vw); }
+  #tform .row{ display:flex; gap:6px; }
+  #tin{ flex:1; min-width:0; font-family:inherit; font-size:14px; color:#e8f6ff; background:rgba(5,5,20,0.8); border:1px solid rgba(63,240,232,0.4); border-radius:18px; padding:8px 12px; outline:none; }
+  #tsend{ font-size:12px; padding:8px 14px; letter-spacing:1px; }
+  #tbtns{ flex:none; display:flex; flex-direction:column; gap:6px; justify-content:center; }
+  .bcard{ display:flex; align-items:center; gap:8px; margin-top:4px; color:var(--gold); font-size:12px; }
+  .bcard img{ height:56px; width:auto; filter:drop-shadow(0 0 8px rgba(63,240,232,0.5)); }
+  @media (max-width:640px){ #tform{ width:40vw; } #tface{ width:40px; } #tface .orb{ width:32px; height:32px; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="nav">
+    <a href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_voice_link.html">TOPHONE</a>
+    <a href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_pilot_hud.html">PILOT HUD</a>
+    <a href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_mission_hud.html">MISSION HUD</a>
+    <a href="https://sparklegremlin.github.io/tobot-gforce-Tophone/tobot_hangar.html">HANGAR</a>
+  </div>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div class="hud"><span>CORES <b id="score">0</b></span><span id="lives">♥ ♥ ♥</span><span>BEST <b id="best">0</b></span></div>
+    <div id="say"></div>
+    <div id="ctl"><button class="small" id="pauseBtn">PAUSE</button><button class="small" id="muteBtn">SOUND: ON</button></div>
+
+    <div class="overlay" id="startScreen">
+      <h1>TOBOT SKY PATROL</h1>
+      <div class="sub">Fly over Daedo City with Tobot!<br>Grab the <b style="color:#3ff0e8">cyan energy cores</b>. Dodge the <b style="color:#ff5d7a">rogue drones</b>. Catch a <b style="color:#f0a830">gold star</b> for a shield!</div>
+      <div class="sub">Move: drag your finger or mouse up and down &nbsp;|&nbsp; or use the arrow keys / W and S</div>
+      <button id="startBtn">LAUNCH!</button>
+    </div>
+
+    <div class="overlay hidden" id="endScreen">
+      <h1>MISSION COMPLETE</h1>
+      <div class="big" id="finalScore">0</div>
+      <div class="sub" id="endMsg"></div>
+      <button id="againBtn">FLY AGAIN</button>
+    </div>
+  </div>
+  <div id="tbar">
+    <div id="tface"><div class="orb"></div>TOBOT</div>
+    <div id="tbody">
+      <div id="tname">TOBOT G-FORCE</div>
+      <div id="ttext">Tap LAUNCH and I'll fly with you, Pilot!</div>
+    </div>
+    <div id="tform">
+      <div class="row"><input id="tin" type="text" placeholder="Talk to Tobot..." autocomplete="off"><button id="tsend">SEND</button></div>
+    </div>
+    <div id="tbtns">
+      <button class="small" id="tvoice">VOICE: ON</button>
+      <button class="small" id="tmin">HIDE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  let W=0,H=0,DPR=1;
+
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    const r = cv.getBoundingClientRect();
+    W = r.width; H = r.height;
+    cv.width = W*DPR; cv.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize); resize();
+  if(window.ResizeObserver) new ResizeObserver(()=>resize()).observe(document.getElementById('stage'));
+
+  /* ---------- sound ---------- */
+  let muted = false, ac = null;
+  const files = { core:'sounds/Notificationboop.mp3', hit:'sounds/UhOhThud.mp3', wow:'sounds/Wow!Sound.mp3',
+                  launch:'sounds/JetThruster.mp3', cheer:'sounds/CrowdCheers.mp3', shield:'sounds/Softbootbeep.mp3' };
+  const cache = {};
+  function getAC(){ try{ if(!ac) ac = new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); }catch(e){} return ac; }
+  function beep(freq, dur, type, vol){
+    const a = getAC(); if(!a) return;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type||'sine'; o.frequency.value = freq; g.gain.value = vol||0.08;
+    o.connect(g); g.connect(a.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur); o.stop(a.currentTime + dur);
+  }
+  function play(name){
+    if(muted) return;
+    try{
+      const base = cache[name] || (cache[name] = new Audio(encodeURI(files[name])));
+      const a = base.cloneNode(); a.volume = name==='launch' ? 0.4 : 0.7;
+      a.play().catch(()=>fallback(name));
+      a.addEventListener('error', ()=>fallback(name));
+    }catch(e){ fallback(name); }
+  }
+  function fallback(name){
+    if(name==='core') beep(880,0.12,'sine');
+    else if(name==='hit') beep(120,0.3,'sawtooth',0.12);
+    else beep(660,0.25,'triangle');
+  }
+
+  /* ---------- game state ---------- */
+  const tobot = { x:0, y:0, vy:0, r:22 };
+  let things = [], stars = [], bgFar = [], bgNear = [];
+  let score=0, lives=3, best=0, running=false, paused=false, shield=0, invuln=0, speed=1, t=0, lastSpawn=0, targetY=0;
+  try{ best = parseInt(localStorage.getItem('tobot_sky_best')||'0',10)||0; }catch(e){}
+  $('best').textContent = best;
+
+  function initBg(){
+    stars = []; for(let i=0;i<70;i++) stars.push({x:Math.random()*W, y:Math.random()*H*0.7, s:Math.random()*1.8+0.4, p:Math.random()*6});
+    bgFar = []; let x=0; while(x<W+200){ const w=40+Math.random()*60; bgFar.push({x, w, h:60+Math.random()*110}); x+=w+6; }
+    bgNear = []; x=0; while(x<W+300){ const w=50+Math.random()*80; bgNear.push({x, w, h:40+Math.random()*90}); x+=w+14; }
+  }
+
+  function showSay(msg){
+    const s = $('say'); s.textContent = msg; s.classList.add('on');
+    clearTimeout(showSay.t); showSay.t = setTimeout(()=>s.classList.remove('on'), 2200);
+  }
+
+  function setLives(){ $('lives').textContent = lives>0 ? Array(lives).fill('♥').join(' ') : ''; }
+
+  function reset(){
+    resize(); initBg();
+    tobot.x = Math.max(70, W*0.18); tobot.y = H/2; targetY = H/2; tobot.vy = 0;
+    things = []; score = 0; lives = 3; shield = 0; invuln = 0; speed = 1; t = 0; lastSpawn = 0;
+    $('score').textContent = 0; setLives();
+  }
+
+  function spawn(){
+    const roll = Math.random();
+    const y = 60 + Math.random()*(H-120);
+    if(roll < 0.55) things.push({k:'core', x:W+30, y, r:14, wob:Math.random()*6});
+    else if(roll < 0.93) things.push({k:'drone', x:W+40, y, r:20, wob:Math.random()*6, vy:(Math.random()-0.5)*40});
+    else things.push({k:'star', x:W+30, y, r:16, wob:0});
+  }
+
+  /* ---------- input ---------- */
+  const keys = {};
+  window.addEventListener('keydown', e=>{
+    if(e.target && /^(input|textarea)$/i.test(e.target.tagName)) return;
+    keys[e.key.toLowerCase()] = true;
+    if(['arrowup','arrowdown',' '].includes(e.key.toLowerCase())) e.preventDefault();
+    if(e.key==='p' || e.key==='Escape') togglePause();
+  });
+  window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
+  function emit(ev){ try{ if(window.onGameEvent) window.onGameEvent(ev); }catch(e){} }
+  function pointerMove(ev){
+    const r = cv.getBoundingClientRect();
+    const p = ev.touches ? ev.touches[0] : ev;
+    targetY = Math.max(30, Math.min(H-30, p.clientY - r.top));
+  }
+  cv.addEventListener('pointermove', pointerMove);
+  cv.addEventListener('pointerdown', pointerMove);
+  cv.addEventListener('touchmove', e=>{ e.preventDefault(); pointerMove(e); }, {passive:false});
+  cv.addEventListener('touchstart', e=>{ e.preventDefault(); pointerMove(e); }, {passive:false});
+
+  /* ---------- flow ---------- */
+  function start(){
+    getAC(); reset(); running = true; paused = false;
+    $('startScreen').classList.add('hidden'); $('endScreen').classList.add('hidden');
+    play('launch'); showSay("Systems online! Let's fly, Pilot!"); emit({type:'start'});
+  }
+  function end(){
+    running = false;
+    let msg = 'Great flying, Pilot!';
+    if(score > best){ best = score; try{ localStorage.setItem('tobot_sky_best', String(best)); }catch(e){} msg = 'NEW BEST SCORE! Tobot is cheering!'; play('cheer'); }
+    else if(score >= 15) msg = 'Awesome mission! So many cores!';
+    else if(score < 5) msg = 'Good try! Tobot says: shake it off and fly again!';
+    $('best').textContent = best; $('finalScore').textContent = score + ' CORES';
+    $('endMsg').textContent = msg; $('endScreen').classList.remove('hidden');
+    emit({type:'end', score:score, best:best, newBest: msg.indexOf('NEW BEST')===0});
+  }
+  function togglePause(){
+    if(!running) return;
+    paused = !paused; $('pauseBtn').textContent = paused ? 'RESUME' : 'PAUSE';
+    if(paused) showSay('Paused. Tap RESUME when ready!');
+  }
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+  $('pauseBtn').addEventListener('click', togglePause);
+  $('muteBtn').addEventListener('click', ()=>{ muted = !muted; $('muteBtn').textContent = 'SOUND: ' + (muted?'OFF':'ON'); });
+
+  /* ---------- update / draw ---------- */
+  let last = performance.now();
+  function frame(now){
+    const dt = Math.min(0.05, (now-last)/1000); last = now;
+    if(running && !paused) update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function update(dt){
+    t += dt; speed = 1 + Math.min(1.4, t/90);
+    if(keys['arrowup']||keys['w']) targetY -= 420*dt;
+    if(keys['arrowdown']||keys['s']) targetY += 420*dt;
+    targetY = Math.max(30, Math.min(H-30, targetY));
+    tobot.vy = (targetY - tobot.y) * 9;
+    tobot.y += tobot.vy * dt;
+    if(shield>0) shield -= dt; if(invuln>0) invuln -= dt;
+
+    lastSpawn += dt;
+    if(lastSpawn > 0.85/speed){ lastSpawn = 0; spawn(); }
+
+    const sp = 230*speed;
+    for(const th of things){
+      th.x -= sp*dt; th.wob += dt*4;
+      if(th.k==='drone'){ th.y += th.vy*dt; if(th.y<40||th.y>H-40) th.vy*=-1; }
+      const dx = th.x - tobot.x, dy = th.y - tobot.y, rr = th.r + tobot.r*0.8;
+      if(!th.dead && dx*dx + dy*dy < rr*rr){
+        th.dead = true;
+        if(th.k==='core'){
+          score++; $('score').textContent = score; play('core');
+          if(score % 10 === 0){ play('wow'); emit({type:'milestone', score:score}); showSay(['Wow! ' + score + ' cores!','Incredible flying, Pilot!','G-FORCE, GO!'][Math.floor(Math.random()*3)]); }
+        } else if(th.k==='star'){
+          shield = 6; play('shield'); showSay('Shield up! You are unstoppable!');
+        } else if(th.k==='drone'){
+          if(shield>0){ score++; $('score').textContent = score; play('core'); }
+          else if(invuln<=0){
+            lives--; invuln = 1.4; setLives(); play('hit'); emit({type:'hit', lives:lives, score:score});
+            if(lives<=0){ end(); return; }
+            else showSay('Ouch! Stay sharp, Pilot!');
+          }
+        }
+      }
+    }
+    things = things.filter(th => !th.dead && th.x > -60);
+  }
+
+  function draw(){
+    // sky
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#0a0630'); g.addColorStop(0.6,'#1c0f58'); g.addColorStop(1,'#2b1470');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    const tt = performance.now()/1000;
+    for(const s of stars){ ctx.globalAlpha = 0.4+0.6*Math.abs(Math.sin(tt+s.p)); ctx.fillStyle='#cfe8ff'; ctx.fillRect(s.x,s.y,s.s,s.s); }
+    ctx.globalAlpha = 1;
+    // city layers (scroll while running)
+    const sc = (running && !paused) ? speed : 0.25;
+    layer(bgFar, '#140c40', 0.35*sc, H, false);
+    layer(bgNear, '#1d1262', 0.8*sc, H, true);
+    // things
+    for(const th of things) drawThing(th);
+    // tobot
+    if(!(invuln>0 && Math.floor(tt*12)%2===0)) drawTobot();
+  }
+
+  function layer(arr, color, v, base, windows){
+    const dx = v*2.2;
+    for(const b of arr){
+      b.x -= dx;
+      if(b.x + b.w < 0){ b.x += arr.reduce((m,o)=>Math.max(m,o.x+o.w),0) - b.x + 6 + (windows?8:0); b.h = (windows?40:60) + Math.random()*(windows?90:110); }
+      ctx.fillStyle = color; ctx.fillRect(b.x, base-b.h, b.w, b.h);
+      if(windows){
+        ctx.fillStyle = 'rgba(63,240,232,0.35)';
+        for(let wy=base-b.h+8; wy<base-8; wy+=16) for(let wx=b.x+6; wx<b.x+b.w-8; wx+=14) ctx.fillRect(wx, wy, 5, 7);
+      }
+    }
+  }
+
+  function drawThing(th){
+    const bob = Math.sin(th.wob)*3;
+    ctx.save(); ctx.translate(th.x, th.y+bob);
+    if(th.k==='core'){
+      ctx.shadowColor='#3ff0e8'; ctx.shadowBlur=16; ctx.fillStyle='#3ff0e8';
+      ctx.beginPath(); ctx.arc(0,0,th.r*0.8,0,6.3); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='#d8fffd'; ctx.beginPath(); ctx.arc(-3,-3,4,0,6.3); ctx.fill();
+    } else if(th.k==='star'){
+      ctx.shadowColor='#f0a830'; ctx.shadowBlur=18; ctx.fillStyle='#f0a830'; ctx.rotate(th.wob*0.5);
+      ctx.beginPath();
+      for(let i=0;i<10;i++){ const a = i*Math.PI/5, r = i%2? th.r*0.5 : th.r*1.1; ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); }
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.shadowColor='#ff5d7a'; ctx.shadowBlur=14;
+      ctx.fillStyle='#3a1040'; ctx.beginPath(); ctx.ellipse(0,0,th.r,th.r*0.7,0,0,6.3); ctx.fill();
+      ctx.shadowBlur=0; ctx.fillStyle='#ff5d7a'; ctx.beginPath(); ctx.arc(-4,0,5,0,6.3); ctx.fill();
+      ctx.strokeStyle='#ff5d7a'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-th.r*0.4,-th.r*0.7); ctx.lineTo(-th.r*0.4-6,-th.r*0.7-8); ctx.moveTo(th.r*0.4,-th.r*0.7); ctx.lineTo(th.r*0.4+6,-th.r*0.7-8); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawTobot(){
+    const x = tobot.x, y = tobot.y, tilt = Math.max(-0.4, Math.min(0.4, tobot.vy/900));
+    ctx.save(); ctx.translate(x,y); ctx.rotate(tilt);
+    // jet flame
+    const fl = 14 + Math.random()*10;
+    ctx.fillStyle = 'rgba(240,168,48,0.9)'; ctx.beginPath(); ctx.moveTo(-18,-5); ctx.lineTo(-18-fl,0); ctx.lineTo(-18,5); ctx.fill();
+    ctx.fillStyle = 'rgba(63,240,232,0.9)'; ctx.beginPath(); ctx.moveTo(-18,-3); ctx.lineTo(-18-fl*0.6,0); ctx.lineTo(-18,3); ctx.fill();
+    // wings
+    ctx.fillStyle = '#7a3cff'; ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-22,-20); ctx.lineTo(4,-4); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-6,0); ctx.lineTo(-22,20); ctx.lineTo(4,4); ctx.fill();
+    // body
+    ctx.fillStyle = '#d6dcff'; ctx.beginPath(); ctx.ellipse(0,0,20,13,0,0,6.3); ctx.fill();
+    ctx.fillStyle = '#4b2bb8'; ctx.beginPath(); ctx.ellipse(-2,2,14,7,0,0,6.3); ctx.fill();
+    // head / visor
+    ctx.fillStyle = '#9aa6ff'; ctx.beginPath(); ctx.arc(10,-3,10,0,6.3); ctx.fill();
+    ctx.shadowColor='#3ff0e8'; ctx.shadowBlur=10; ctx.fillStyle='#3ff0e8';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(6,-7,12,7,3) : ctx.rect(6,-7,12,7); ctx.fill();
+    ctx.shadowBlur=0;
+    // antenna
+    ctx.strokeStyle='#d6dcff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(7,-12); ctx.lineTo(4,-20); ctx.stroke();
+    ctx.fillStyle='#f0a830'; ctx.beginPath(); ctx.arc(4,-21,2.5,0,6.3); ctx.fill();
+    // shield bubble
+    if(shield>0){
+      ctx.strokeStyle = 'rgba(240,168,48,' + (0.5+0.4*Math.sin(performance.now()/90)) + ')'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0,0,32,0,6.3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  reset();
+  requestAnimationFrame(frame);
+  window.__game = { start, get state(){ return {score,lives,running,things:things.length}; }, tobot, setTarget:y=>{targetY=y;} };
+})();
+</script>
+
+<script>
+(function(){
+  const DEFAULT_RELAY = 'https://tobot-relay.sparklegremlinkindroid.workers.dev';
+  function relay(){ let u=''; try{ u=(localStorage.getItem('tobot_relay_url')||'').trim(); }catch(e){} return u || DEFAULT_RELAY; }
+  const $ = id => document.getElementById(id);
+  const ttext = $('ttext'), tface = $('tface');
+  let voiceOn = true, busy = false, lastSend = 0, pendingEnd = null, token = 0, curAudio = null;
+
+  const SOUND_CUES = {
+    laser:   'sounds/LaserGunShot.mp3',
+    blastoff:'sounds/Shortblastoff.mp3',
+    whoosh:  'sounds/SimpleWhoosh.mp3',
+    beep:    'sounds/Softbootbeep.mp3',
+    siren:   'sounds/police-Firetrucksiren.mp3',
+    compute: 'sounds/robot-compute-beeps.mp3',
+    cheer:   'sounds/CrowdCheers.mp3',
+    hydraulic:'sounds/HydraulicMovement.mp3',
+    ding:    'sounds/Notificationboop.mp3',
+    party:   'sounds/PartyMusic.mp3',
+    wow:     'sounds/Wow!Sound.mp3',
+    meow:    'sounds/CatMeow.mp3',
+    creak:   'sounds/CreakingDoor.mp3',
+    roar:    'sounds/DinoRoar.mp3',
+    bark:    'sounds/DogBark.mp3',
+    footsteps:'sounds/Footsteps.mp3',
+    whimper: 'sounds/PuppyWhimper.mp3',
+    thunder: 'sounds/Thunder.mp3',
+    splash:  'sounds/WaterSplash.mp3',
+    engine:  'sounds/CarEngine.mp3',
+    jet:     'sounds/JetThruster.mp3',
+    uhoh:    'sounds/UhOhThud.mp3'
+  };
+  // Words Tobot might use for each sound (he may write [whoosh], *WHOOSH!*, *laser blast*, etc.)
+  const CUE_WORDS = {
+    laser:   ['laser','pew','zap','blaster','lasergun'],
+    blastoff:['blastoff','blast','liftoff','launch','rocket','boom'],
+    whoosh:  ['whoosh','swoosh','woosh','whooosh','zoom','fly'],
+    beep:    ['beep','bleep'],
+    siren:   ['siren','alarm','alert','wee','woo'],
+    compute: ['compute','computing','processing','beeps','scanning','analyzing','data'],
+    cheer:   ['cheer','cheers','cheering','applause','crowd','hooray','yay','woohoo'],
+    hydraulic:['hydraulic','hydraulics','transform','transforming','piston','servo','clank','mechanical'],
+    ding:    ['ding','boop','ping','notification','notify','chime'],
+    party:   ['party','music','celebrate','celebration','dance','disco'],
+    wow:     ['wow','amazing','awesome','whoa'],
+    meow:    ['meow','cat','kitty','kitten','purr','mew'],
+    creak:   ['creak','creaking','door','squeak'],
+    roar:    ['roar','dino','dinosaur','rawr','trex'],
+    bark:    ['bark','dog','woof','arf','ruff'],
+    footsteps:['footsteps','footstep','steps','walking','stomp','stomping','tiptoe'],
+    whimper: ['whimper','puppy','whine','whining','pup'],
+    thunder: ['thunder','storm','lightning','rumble','thunderclap'],
+    splash:  ['splash','water','dive','swim','plop'],
+    engine:  ['engine','vroom','vrooom','rev','revving','car','drive','driving'],
+    jet:     ['jet','thruster','thrusters','thrust','boost','afterburner'],
+    uhoh:    ['uhoh','oops','oopsie','thud','bonk','crash','whoops','uh','oh']
+  };
+  function cueFromText(inner){
+    const words = inner.toLowerCase().replace(/[^a-z\s]/g,' ').split(/\s+/).filter(Boolean)
+      .map(w => w.replace(/(.)\1{2,}/g, '$1$1')); // whoooosh -> whoosh
+    for(const key in CUE_WORDS){
+      for(const w of words){
+        if(w === key || CUE_WORDS[key].indexOf(w) > -1 || CUE_WORDS[key].indexOf(w.replace(/(.)\1+/g,'$1')) > -1 || w.replace(/(.)\1+/g,'$1') === key.replace(/(.)\1+/g,'$1')) return key;
+      }
+    }
+    return null;
+  }
+  function extractCues(text){
+    const cues = [];
+    // [cue], *cue*, **cue**, with an optional speaker emoji in front
+    const cleaned = text.replace(/(?:\u{1F50A}|\u{1F509}|\u{1F4A5})?\s*(\[|\*{1,2})\s*([^\]*\n]{1,40}?)\s*(\]|\*{1,2})/gu, (m, open, inner)=>{
+      const key = cueFromText(inner);
+      if(key && SOUND_CUES[key]){ cues.push(key); return ''; }
+      return m;
+    }).replace(/^[\s\u{1F50A}\u{1F509}]+/u, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+([.,!?])/g, '$1').trim();
+    return { cleaned, cues };
+  }
+  function buildItems(text){
+    const re = /(?:\u{1F50A}|\u{1F509}|\u{1F4A5})?\s*(\[|\*{1,2})\s*([^\]*\n]{1,40}?)\s*(\]|\*{1,2})/gu;
+    const items = [];
+    let last = 0, m;
+    const push = (t)=>{ const c = t.replace(/[ \t]{2,}/g,' ').replace(/\s+([.,!?])/g,'$1').trim(); if(c) items.push({t:'text', text:c}); };
+    while((m = re.exec(text)) !== null){
+      const key = cueFromText(m[2]);
+      if(key && SOUND_CUES[key]){
+        push(text.slice(last, m.index));
+        items.push({t:'cue', key:key});
+        last = m.index + m[0].length;
+      }
+    }
+    push(text.slice(last));
+    return items;
+  }
+
+  function say(text){ ttext.textContent = text; ttext.scrollTop = 0; }
+
+  // ---- voice: ElevenLabs through the worker, same as the Tophone ----
+  function stopVoice(){ token++; try{ if(curAudio){ curAudio.pause(); curAudio=null; } }catch(e){} tface.classList.remove('talk'); }
+  function playUrl(url, vol){
+    return new Promise(res=>{
+      const a = new Audio(url); a.volume = vol; curAudio = a;
+      a.onended = ()=>res(); a.onerror = ()=>res();
+      const pr = a.play(); if(pr && pr.catch) pr.catch(()=>res());
+    });
+  }
+  async function speakItems(items){
+    if(!voiceOn) return;
+    const my = ++token; tface.classList.add('talk');
+    try{
+      for(const it of items){
+        if(my !== token) return;
+        if(it.t === 'cue'){ try{ const a = new Audio(SOUND_CUES[it.key]); a.volume = 0.7; a.play().catch(()=>{}); }catch(e){} await new Promise(r=>setTimeout(r, 450)); continue; }
+        try{
+          const r = await fetch(relay(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({tts: it.text})});
+          if(!r.ok || (r.headers.get('Content-Type')||'').indexOf('audio') < 0) throw new Error('voice');
+          const url = URL.createObjectURL(await r.blob());
+          if(my !== token) return;
+          await playUrl(url, 1);
+        }catch(e){
+          if('speechSynthesis' in window){ await new Promise(res=>{ const u = new SpeechSynthesisUtterance(it.text); u.onend = res; u.onerror = res; speechSynthesis.speak(u); }); }
+        }
+      }
+    } finally { if(my === token) tface.classList.remove('talk'); }
+  }
+
+  // ---- badges (same tag as the Tophone: [badge: Name | what it was for]) ----
+  function extractBadge(text){
+    const re = /\[\s*badge\s*[:\-]\s*([^\]|]{1,80}?)\s*(?:[|\u2014\u2013]\s*([^\]]{0,240}))?\]/i;
+    const m = text.match(re);
+    if(!m) return {text:text, badge:null};
+    return {text: text.replace(m[0],'').replace(/[ \t]{2,}/g,' ').trim(), badge:{name:m[1].trim(), desc:(m[2]||'').trim()}};
+  }
+  async function makeBadge(b){
+    const card = document.createElement('div'); card.className = 'bcard'; card.textContent = 'Forging your badge...';
+    $('tbody').appendChild(card);
+    try{
+      const r = await fetch(relay(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({badge:b})});
+      const d = await r.json();
+      if(!d.ok){ card.textContent = d.error==='daily_limit' ? "Today's picture limit is used up!" : 'Badge art is not ready yet.'; return; }
+      const src = d.img_data || (d.badge && d.badge.img) || '';
+      const safe = String(d.badge.name).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      card.textContent = '';
+      const im = document.createElement('img'); im.alt = 'Badge'; im.src = src;
+      const sp = document.createElement('span'); sp.innerHTML = 'NEW BADGE: ' + safe + '<br>Saved to your Mission HUD!';
+      card.appendChild(im); card.appendChild(sp);
+    }catch(e){ card.textContent = 'The badge machine hiccuped.'; }
+  }
+
+  // ---- talking to Tobot ----
+  async function ask(message, opts){
+    opts = opts || {};
+    busy = true; lastSend = Date.now();
+    say('...');
+    try{
+      const r = await fetch(relay(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({message})});
+      const raw = ((await r.text()) || '').trim() || "Keep flying, Pilot!";
+      const bx = extractBadge(raw);
+      const body = bx.badge ? bx.text : raw;
+      const clean = extractCues(body).cleaned || body;
+      say(clean);
+      if(bx.badge) makeBadge(bx.badge);
+      speakItems(buildItems(body));
+    }catch(e){ say("My signal got fuzzy! Keep flying, Pilot!"); }
+    busy = false;
+    if(pendingEnd){ const p = pendingEnd; pendingEnd = null; sendEvent(p); }
+  }
+
+  const TAG = '(Game update from Tobot Sky Patrol, not typed by Garrett. Reply in ONE short cheerful sentence, under 15 words. ';
+  function sendEvent(ev){
+    let m;
+    if(ev.type === 'start') m = TAG + 'Garrett just launched the flying game. Cheer him on. No badge tag.)';
+    else if(ev.type === 'milestone') m = TAG + 'He has collected ' + ev.score + ' energy cores so far. Hype him up. No badge tag.)';
+    else if(ev.type === 'hit') m = TAG + 'A rogue drone hit him and he has ' + ev.lives + ' lives left. Encourage him. No badge tag.)';
+    else if(ev.type === 'end'){
+      const great = ev.newBest || ev.score >= 25;
+      m = TAG + 'The game is over. He collected ' + ev.score + ' energy cores' + (ev.newBest ? ' and set a NEW BEST score' : '') + '. ' +
+        (great ? 'That earns him a badge, so end with one tag: [badge: Sky Patrol Ace | collected ' + ev.score + ' energy cores in Tobot Sky Patrol].)' : 'Be encouraging. No badge tag.)');
+    }
+    ask(m);
+  }
+  window.onGameEvent = function(ev){
+    if(ev.type === 'end'){ if(busy){ pendingEnd = ev; } else sendEvent(ev); return; }
+    if(busy) return;                                   // never pile up requests
+    if(ev.type === 'hit' && Date.now() - lastSend < 15000) return;
+    if(ev.type === 'milestone' && Date.now() - lastSend < 8000) return;
+    sendEvent(ev);
+  };
+
+  // ---- the little chat box ----
+  function submit(){
+    const v = $('tin').value.trim(); if(!v) return;
+    $('tin').value = ''; stopVoice();
+    if(busy){ say('One sec, Pilot, I am still talking!'); return; }
+    ask(v);
+  }
+  $('tsend').addEventListener('click', submit);
+  $('tin').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); e.stopPropagation(); });
+  $('tvoice').addEventListener('click', ()=>{ voiceOn = !voiceOn; $('tvoice').textContent = 'VOICE: ' + (voiceOn?'ON':'OFF'); if(!voiceOn) stopVoice(); });
+  $('tmin').addEventListener('click', ()=>{ const b = $('tbar'); b.classList.toggle('min'); $('tmin').textContent = b.classList.contains('min') ? 'SHOW' : 'HIDE'; });
+  window.__tobotWindow = { say, ask };
+})();
+</script>
+</body>
+</html>
