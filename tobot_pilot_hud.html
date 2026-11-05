@@ -558,32 +558,6 @@
 
   </div>
 
-  <!-- BADGE WALL (full width, where PILOT STATS used to sit) -->
-  <div class="panel statspanel">
-    <div class="metal-header badge-wall-toggle" id="badgeWallHeader" role="button" tabindex="0" aria-expanded="false">
-      BADGE WALL <span class="chevron">&#9660;</span>
-    </div>
-    <div class="badge-wall-body" id="badgeWallBody">
-    <div class="badge-scroll" style="width:100%; max-height:none;">
-      <div class="badge-grid" style="grid-template-columns:repeat(6,1fr);">
-        <div class="badge-slot" data-tooltip="Mindcore Pilot 1st Sync">
-          <img src="badges/tophone.png" alt="Mindcore Pilot 1st Sync">
-        </div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-        <div class="badge-slot locked"><div class="lock-ico">&#128274;</div></div>
-      </div>
-    </div>
-    <div class="badge-caption">Hover a badge to see how it was earned. New badges unlock as missions are completed &amp; approved.</div>
-    </div>
-  </div>
   <div class="panel corepanel" style="margin-top:16px;">
     <div class="label">MIND CORE DIAGNOSTIC &mdash; LIVE FEED</div>
 
@@ -876,42 +850,6 @@
     mechSfx1.volume = 0.5;
     mechSfx1.play();
   });
-
-  // ---- Badge Wall: click the metal header to deploy/retract the badge grid ----
-  const badgeWallHeader = document.getElementById('badgeWallHeader');
-  const badgeWallBody = document.getElementById('badgeWallBody');
-  let badgeWallOpen = false;
-  function toggleBadgeWall(){
-    badgeWallOpen = !badgeWallOpen;
-    badgeWallBody.classList.toggle('open', badgeWallOpen);
-    badgeWallHeader.classList.toggle('is-open', badgeWallOpen);
-    badgeWallHeader.setAttribute('aria-expanded', String(badgeWallOpen));
-    const mechSfx2 = document.getElementById('sfxPilotStatsStep');
-    mechSfx2.currentTime = 0;
-    mechSfx2.volume = 0.5;
-    mechSfx2.play();
-  }
-  badgeWallHeader.addEventListener('click', toggleBadgeWall);
-  badgeWallHeader.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleBadgeWall(); }
-  });
-
-  // ---- Badge unlock: slide-in + clank-lock sound ----
-  // Wire this function to real mission-approval events (each badge gets its
-  // own image + tooltip once a mission is approved).
-  function unlockBadge(slotEl, imgSrc, tooltip){
-    if(!slotEl.classList.contains('locked')) return;
-    slotEl.classList.remove('locked');
-    slotEl.classList.add('unlocking','unlock-flash');
-    slotEl.removeAttribute('data-tooltip-pending');
-    if(tooltip) slotEl.setAttribute('data-tooltip', tooltip);
-    const lockIco = slotEl.querySelector('.lock-ico');
-    const img = document.createElement('img');
-    img.src = imgSrc; img.alt = tooltip || 'Badge unlocked';
-    slotEl.appendChild(img);
-    SFX.clankLock();
-    setTimeout(()=>{ if(lockIco) lockIco.remove(); }, 320);
-  }
 
   // ---- Mind Core code readout ----
   const codeLines = [
