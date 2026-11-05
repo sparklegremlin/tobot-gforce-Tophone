@@ -444,12 +444,29 @@
   function say(text){ ttext.textContent = text; ttext.scrollTop = 0; }
 
   // ---- voice: ElevenLabs through the worker, same as the Tophone ----
-  function stopVoice(){ token++; try{ if(curAudio){ curAudio.pause(); curAudio=null; } }catch(e){} tface.classList.remove('talk'); }
+  function stopVoice(){ token++; blockedRetry = null; try{ voiceEl.pause(); }catch(e){} tface.classList.remove('talk'); }
+  // iPad/iPhone only allow sound that was "unlocked" by a tap, so we reuse two elements and unlock them on the first touch
+  const SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+  const voiceEl = new Audio(), cueEl = new Audio();
+  let unlocked = false, blockedRetry = null;
+  function unlock(){
+    if(!unlocked){
+      [voiceEl, cueEl].forEach(el=>{ try{ el.src = SILENT; const p = el.play(); if(p && p.then) p.then(()=>{ unlocked = true; }).catch(()=>{}); }catch(e){} });
+      try{ if('speechSynthesis' in window){ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } }catch(e){}
+    }
+    if(blockedRetry){ const f = blockedRetry; blockedRetry = null; $('tname').textContent = 'TOBOT G-FORCE'; f(); }
+  }
+  ['pointerdown','touchend','click','keydown'].forEach(ev=>document.addEventListener(ev, unlock, {passive:true}));
   function playUrl(url, vol){
     return new Promise(res=>{
-      const a = new Audio(url); a.volume = vol; curAudio = a;
+      const a = voiceEl; curAudio = a;
       a.onended = ()=>res(); a.onerror = ()=>res();
-      const pr = a.play(); if(pr && pr.catch) pr.catch(()=>res());
+      a.src = url; a.volume = vol;
+      const pr = a.play();
+      if(pr && pr.catch) pr.catch(()=>{
+        $('tname').textContent = 'TAP THE SCREEN TO HEAR TOBOT!';
+        blockedRetry = ()=>{ const q = a.play(); if(q && q.catch) q.catch(()=>res()); };
+      });
     });
   }
   async function speakItems(items){
@@ -458,7 +475,7 @@
     try{
       for(const it of items){
         if(my !== token) return;
-        if(it.t === 'cue'){ try{ const a = new Audio(SOUND_CUES[it.key]); a.volume = 0.7; a.play().catch(()=>{}); }catch(e){} await new Promise(r=>setTimeout(r, 450)); continue; }
+        if(it.t === 'cue'){ try{ cueEl.src = SOUND_CUES[it.key]; cueEl.volume = 0.7; const q = cueEl.play(); if(q && q.catch) q.catch(()=>{}); }catch(e){} await new Promise(r=>setTimeout(r, 450)); continue; }
         try{
           const r = await fetch(relay(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({tts: it.text})});
           if(!r.ok || (r.headers.get('Content-Type')||'').indexOf('audio') < 0) throw new Error('voice');
